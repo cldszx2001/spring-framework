@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,7 +41,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.config.EnableWebFlux;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Integration tests with {@code @CrossOrigin} and {@code @RequestMapping}
@@ -59,7 +63,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 	public void setup() throws Exception {
 		super.setup();
 		this.headers = new HttpHeaders();
-		this.headers.setOrigin("http://site1.com");
+		this.headers.setOrigin("https://site1.com");
 	}
 
 
@@ -68,7 +72,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
 		context.register(WebConfig.class);
 		Properties props = new Properties();
-		props.setProperty("myOrigin", "http://site1.com");
+		props.setProperty("myOrigin", "https://site1.com");
 		context.getEnvironment().getPropertySources().addFirst(new PropertiesPropertySource("ps", props));
 		context.register(PropertySourcesPlaceholderConfigurer.class);
 		context.refresh();
@@ -130,7 +134,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 	public void actualRequestWithCustomizedAnnotation() throws Exception {
 		ResponseEntity<String> entity = performGet("/customized", this.headers, String.class);
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
-		assertEquals("http://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
+		assertEquals("https://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
 		assertFalse(entity.getHeaders().getAccessControlAllowCredentials());
 		assertEquals(-1, entity.getHeaders().getAccessControlMaxAge());
 		assertEquals("customized", entity.getBody());
@@ -143,7 +147,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 		ResponseEntity<String> entity = performOptions("/customized", this.headers, String.class);
 
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
-		assertEquals("http://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
+		assertEquals("https://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
 		assertArrayEquals(new HttpMethod[] {HttpMethod.GET},
 				entity.getHeaders().getAccessControlAllowMethods().toArray());
 		assertArrayEquals(new String[] {"header1", "header2"},
@@ -158,7 +162,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 	public void customOriginDefinedViaValueAttribute() throws Exception {
 		ResponseEntity<String> entity = performGet("/origin-value-attribute", this.headers, String.class);
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
-		assertEquals("http://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
+		assertEquals("https://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
 		assertEquals("value-attribute", entity.getBody());
 	}
 
@@ -166,7 +170,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 	public void customOriginDefinedViaPlaceholder() throws Exception {
 		ResponseEntity<String> entity = performGet("/origin-placeholder", this.headers, String.class);
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
-		assertEquals("http://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
+		assertEquals("https://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
 		assertEquals("placeholder", entity.getBody());
 	}
 
@@ -186,7 +190,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 
 		entity = performGet("/baz", this.headers, String.class);
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
-		assertEquals("http://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
+		assertEquals("https://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
 		assertTrue(entity.getHeaders().getAccessControlAllowCredentials());
 		assertEquals("baz", entity.getBody());
 	}
@@ -198,7 +202,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 		ResponseEntity<String> entity = performOptions("/ambiguous-header", this.headers, String.class);
 
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
-		assertEquals("http://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
+		assertEquals("https://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
 		assertArrayEquals(new HttpMethod[] {HttpMethod.GET},
 				entity.getHeaders().getAccessControlAllowMethods().toArray());
 		assertArrayEquals(new String[] {"header1"},
@@ -212,7 +216,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 		ResponseEntity<String> entity = performOptions("/ambiguous-produces", this.headers, String.class);
 
 		assertEquals(HttpStatus.OK, entity.getStatusCode());
-		assertEquals("http://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
+		assertEquals("https://site1.com", entity.getHeaders().getAccessControlAllowOrigin());
 		assertArrayEquals(new HttpMethod[] {HttpMethod.GET},
 				entity.getHeaders().getAccessControlAllowMethods().toArray());
 		assertTrue(entity.getHeaders().getAccessControlAllowCredentials());
@@ -274,7 +278,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 		}
 
 		@CrossOrigin(
-				origins = { "http://site1.com", "http://site2.com" },
+				origins = { "https://site1.com", "https://site2.com" },
 				allowedHeaders = { "header1", "header2" },
 				exposedHeaders = { "header3", "header4" },
 				methods = RequestMethod.GET,
@@ -285,7 +289,7 @@ public class CrossOriginAnnotationIntegrationTests extends AbstractRequestMappin
 			return "customized";
 		}
 
-		@CrossOrigin("http://site1.com")
+		@CrossOrigin("https://site1.com")
 		@GetMapping("/origin-value-attribute")
 		public String customOriginDefinedViaValueAttribute() {
 			return "value-attribute";

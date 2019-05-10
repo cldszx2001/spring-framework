@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,10 +44,7 @@ import javax.security.auth.Subject;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.Ignore;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.mockito.ArgumentMatchers;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.MutablePropertyValues;
@@ -102,9 +99,25 @@ import org.springframework.util.SerializationTestUtils;
 import org.springframework.util.StopWatch;
 import org.springframework.util.StringValueResolver;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 /**
  * Tests properties population and autowire behavior.
@@ -120,11 +133,6 @@ import static org.mockito.BDDMockito.*;
 public class DefaultListableBeanFactoryTests {
 
 	private static final Log factoryLog = LogFactory.getLog(DefaultListableBeanFactory.class);
-
-
-	@Rule
-	public ExpectedException thrown = ExpectedException.none();
-
 
 	@Test
 	public void testUnreferencedSingletonWasInstantiated() {
@@ -1229,8 +1237,8 @@ public class DefaultListableBeanFactoryTests {
 	public void testExpressionInStringArray() {
 		DefaultListableBeanFactory bf = new DefaultListableBeanFactory();
 		BeanExpressionResolver beanExpressionResolver = mock(BeanExpressionResolver.class);
-		when(beanExpressionResolver.evaluate(eq("#{foo}"), ArgumentMatchers.any(BeanExpressionContext.class)))
-				.thenReturn("classpath:/org/springframework/beans/factory/xml/util.properties");
+		given(beanExpressionResolver.evaluate(eq("#{foo}"), any(BeanExpressionContext.class)))
+				.willReturn("classpath:/org/springframework/beans/factory/xml/util.properties");
 		bf.setBeanExpressionResolver(beanExpressionResolver);
 
 		RootBeanDefinition rbd = new RootBeanDefinition(PropertiesFactoryBean.class);
@@ -1456,6 +1464,24 @@ public class DefaultListableBeanFactoryTests {
 	}
 
 	@Test
+	public void testGetFactoryBeanByTypeWithPrimary() {
+		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
+		RootBeanDefinition bd1 = new RootBeanDefinition(NullTestBeanFactoryBean.class);
+		RootBeanDefinition bd2 = new RootBeanDefinition(NullTestBeanFactoryBean.class);
+		bd2.setPrimary(true);
+		lbf.registerBeanDefinition("bd1", bd1);
+		lbf.registerBeanDefinition("bd2", bd2);
+		NullTestBeanFactoryBean factoryBeanByType = lbf.getBean(NullTestBeanFactoryBean.class);
+		NullTestBeanFactoryBean bd1FactoryBean = (NullTestBeanFactoryBean)lbf.getBean("&bd1");
+		NullTestBeanFactoryBean bd2FactoryBean = (NullTestBeanFactoryBean)lbf.getBean("&bd2");
+		assertNotNull(factoryBeanByType);
+		assertNotNull(bd1FactoryBean);
+		assertNotNull(bd2FactoryBean);
+		assertNotEquals(factoryBeanByType, bd1FactoryBean);
+		assertEquals(factoryBeanByType, bd2FactoryBean);
+	}
+
+	@Test
 	public void testGetBeanByTypeWithMultiplePrimary() {
 		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
 		RootBeanDefinition bd1 = new RootBeanDefinition(TestBean.class);
@@ -1464,9 +1490,9 @@ public class DefaultListableBeanFactoryTests {
 		bd2.setPrimary(true);
 		lbf.registerBeanDefinition("bd1", bd1);
 		lbf.registerBeanDefinition("bd2", bd2);
-		thrown.expect(NoUniqueBeanDefinitionException.class);
-		thrown.expectMessage(containsString("more than one 'primary'"));
-		lbf.getBean(TestBean.class);
+		assertThatExceptionOfType(NoUniqueBeanDefinitionException.class).isThrownBy(() ->
+				lbf.getBean(TestBean.class))
+			.withMessageContaining("more than one 'primary'");
 	}
 
 	@Test
@@ -1509,10 +1535,10 @@ public class DefaultListableBeanFactoryTests {
 		RootBeanDefinition bd2 = new RootBeanDefinition(HighPriorityTestBean.class);
 		lbf.registerBeanDefinition("bd1", bd1);
 		lbf.registerBeanDefinition("bd2", bd2);
-		thrown.expect(NoUniqueBeanDefinitionException.class);
-		thrown.expectMessage(containsString("Multiple beans found with the same priority"));
-		thrown.expectMessage(containsString("5"));  // conflicting priority
-		lbf.getBean(TestBean.class);
+		assertThatExceptionOfType(NoUniqueBeanDefinitionException.class).isThrownBy(() ->
+				lbf.getBean(TestBean.class))
+			.withMessageContaining("Multiple beans found with the same priority")
+			.withMessageContaining("5"); // conflicting priority
 	}
 
 	@Test
@@ -1759,9 +1785,9 @@ public class DefaultListableBeanFactoryTests {
 		lbf.registerBeanDefinition("bd1", bd1);
 		lbf.registerBeanDefinition("bd2", bd2);
 
-		thrown.expect(NoUniqueBeanDefinitionException.class);
-		thrown.expectMessage(containsString("more than one 'primary'"));
-		lbf.getBean(ConstructorDependency.class, 42);
+		assertThatExceptionOfType(NoUniqueBeanDefinitionException.class).isThrownBy(() ->
+				lbf.getBean(ConstructorDependency.class, 42))
+			.withMessageContaining("more than one 'primary'");
 	}
 
 	@Test
@@ -1853,7 +1879,7 @@ public class DefaultListableBeanFactoryTests {
 	/**
 	 * Verifies that a dependency on a {@link FactoryBean} can be autowired
 	 * <em>by type</em>, specifically addressing the JIRA issue raised in <a
-	 * href="http://opensource.atlassian.com/projects/spring/browse/SPR-4040"
+	 * href="https://opensource.atlassian.com/projects/spring/browse/SPR-4040"
 	 * target="_blank">SPR-4040</a>.
 	 */
 	@Test
@@ -1867,6 +1893,24 @@ public class DefaultListableBeanFactoryTests {
 				AutowireCapableBeanFactory.AUTOWIRE_BY_TYPE, true);
 		assertEquals("The FactoryBeanDependentBean should have been autowired 'by type' with the LazyInitFactory.",
 				factoryBean, bean.getFactoryBean());
+	}
+
+	@Test
+	public void testAutowireBeanWithFactoryBeanByTypeWithPrimary() {
+		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
+		RootBeanDefinition bd1 = new RootBeanDefinition(LazyInitFactory.class);
+		RootBeanDefinition bd2 = new RootBeanDefinition(LazyInitFactory.class);
+		bd2.setPrimary(true);
+		lbf.registerBeanDefinition("bd1", bd1);
+		lbf.registerBeanDefinition("bd2", bd2);
+		LazyInitFactory bd1FactoryBean = (LazyInitFactory) lbf.getBean("&bd1");
+		LazyInitFactory bd2FactoryBean = (LazyInitFactory) lbf.getBean("&bd2");
+		assertNotNull(bd1FactoryBean);
+		assertNotNull(bd2FactoryBean);
+		FactoryBeanDependentBean bean = (FactoryBeanDependentBean) lbf.autowire(FactoryBeanDependentBean.class,
+				AutowireCapableBeanFactory.AUTOWIRE_BY_TYPE, true);
+		assertNotEquals(bd1FactoryBean, bean.getFactoryBean());
+		assertEquals(bd2FactoryBean, bean.getFactoryBean());
 	}
 
 	@Test
@@ -2351,6 +2395,27 @@ public class DefaultListableBeanFactoryTests {
 		DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
 		lbf.registerBeanDefinition("test", new RootBeanDefinition(FactoryBeanThatShouldntBeCalled.class));
 		lbf.preInstantiateSingletons();
+	}
+
+	@Test
+	public void testLazyInitFlag() {
+		DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+		RootBeanDefinition bd1 = new RootBeanDefinition(TestBean.class);
+		bd1.setLazyInit(true);
+		factory.registerBeanDefinition("tb1", bd1);
+		RootBeanDefinition bd2 = new RootBeanDefinition(TestBean.class);
+		bd2.setLazyInit(false);
+		factory.registerBeanDefinition("tb2", bd2);
+		factory.registerBeanDefinition("tb3", new RootBeanDefinition(TestBean.class));
+
+		assertEquals(Boolean.TRUE, ((AbstractBeanDefinition) factory.getMergedBeanDefinition("tb1")).getLazyInit());
+		assertEquals(Boolean.FALSE, ((AbstractBeanDefinition) factory.getMergedBeanDefinition("tb2")).getLazyInit());
+		assertNull(((AbstractBeanDefinition) factory.getMergedBeanDefinition("tb3")).getLazyInit());
+
+		factory.preInstantiateSingletons();
+		assertFalse(factory.containsSingleton("tb1"));
+		assertTrue(factory.containsSingleton("tb2"));
+		assertTrue(factory.containsSingleton("tb3"));
 	}
 
 	@Test
@@ -2877,8 +2942,8 @@ public class DefaultListableBeanFactoryTests {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test
+	@SuppressWarnings("unchecked")
 	public void testInitSecurityAwarePrototypeBean() {
 		final DefaultListableBeanFactory lbf = new DefaultListableBeanFactory();
 		RootBeanDefinition bd = new RootBeanDefinition(TestSecuredBean.class);
@@ -2889,12 +2954,7 @@ public class DefaultListableBeanFactoryTests {
 		subject.getPrincipals().add(new TestPrincipal("user1"));
 
 		TestSecuredBean bean = (TestSecuredBean) Subject.doAsPrivileged(subject,
-				new PrivilegedAction() {
-					@Override
-					public Object run() {
-						return lbf.getBean("test");
-					}
-				}, null);
+				(PrivilegedAction) () -> lbf.getBean("test"), null);
 		assertNotNull(bean);
 		assertEquals("user1", bean.getUserName());
 	}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
@@ -44,6 +45,7 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBuffer;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.core.io.buffer.support.DataBufferTestUtils;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpRange;
 import org.springframework.http.ReactiveHttpOutputMessage;
@@ -65,10 +67,11 @@ import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
-import static java.nio.charset.StandardCharsets.*;
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.springframework.http.codec.json.Jackson2CodecSupport.*;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.Assert.assertArrayEquals;
+import static org.springframework.http.codec.json.Jackson2CodecSupport.JSON_VIEW_HINT;
 
 /**
  * @author Arjen Poutsma
@@ -121,10 +124,11 @@ public class BodyInsertersTests {
 		MockServerHttpResponse response = new MockServerHttpResponse();
 		Mono<Void> result = inserter.insert(response, this.context);
 		StepVerifier.create(result).expectComplete().verify();
-
-		DataBuffer buffer = new DefaultDataBufferFactory().wrap(body.getBytes(UTF_8));
 		StepVerifier.create(response.getBody())
-				.expectNext(buffer)
+				.consumeNextWith(buf -> {
+					String actual = DataBufferTestUtils.dumpString(buf, UTF_8);
+					Assert.assertEquals("foo", actual);
+				})
 				.expectComplete()
 				.verify();
 	}
@@ -166,11 +170,11 @@ public class BodyInsertersTests {
 		MockServerHttpResponse response = new MockServerHttpResponse();
 		Mono<Void> result = inserter.insert(response, this.context);
 		StepVerifier.create(result).expectComplete().verify();
-
-		ByteBuffer byteBuffer = ByteBuffer.wrap("foo".getBytes(UTF_8));
-		DataBuffer buffer = new DefaultDataBufferFactory().wrap(byteBuffer);
 		StepVerifier.create(response.getBody())
-				.expectNext(buffer)
+				.consumeNextWith(buf -> {
+					String actual = DataBufferTestUtils.dumpString(buf, UTF_8);
+					Assert.assertEquals("foo", actual);
+				})
 				.expectComplete()
 				.verify();
 	}
@@ -263,7 +267,7 @@ public class BodyInsertersTests {
 		BodyInserter<MultiValueMap<String, String>, ClientHttpRequest>
 				inserter = BodyInserters.fromFormData(body);
 
-		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("http://example.com"));
+		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("https://example.com"));
 		Mono<Void> result = inserter.insert(request, this.context);
 		StepVerifier.create(result).expectComplete().verify();
 
@@ -288,7 +292,7 @@ public class BodyInsertersTests {
 				.with("name 2", "value 2+2")
 				.with("name 3", null);
 
-		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("http://example.com"));
+		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("https://example.com"));
 		Mono<Void> result = inserter.insert(request, this.context);
 		StepVerifier.create(result).expectComplete().verify();
 
@@ -315,7 +319,7 @@ public class BodyInsertersTests {
 						.withPublisher("name 2", Flux.just("foo", "bar", "baz"), String.class)
 						.with(map);
 
-		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("http://example.com"));
+		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("https://example.com"));
 		Mono<Void> result = inserter.insert(request, this.context);
 		StepVerifier.create(result).expectComplete().verify();
 
@@ -327,7 +331,7 @@ public class BodyInsertersTests {
 		map.put("name", Arrays.asList("value1", "value2"));
 		BodyInserters.FormInserter<Object> inserter = BodyInserters.fromMultipartData(map);
 
-		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("http://example.com"));
+		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("https://example.com"));
 		Mono<Void> result = inserter.insert(request, this.context);
 		StepVerifier.create(result).expectComplete().verify();
 

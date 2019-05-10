@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,6 +37,8 @@ import io.netty.buffer.ByteBuf;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
+import org.reactivestreams.Subscription;
+import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -46,9 +48,14 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.buffer.support.DataBufferTestUtils;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willAnswer;
+import static org.mockito.Mockito.mock;
 
 /**
  * @author Arjen Poutsma
@@ -87,14 +94,14 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 	@Test
 	public void readByteChannelError() throws Exception {
 		ReadableByteChannel channel = mock(ReadableByteChannel.class);
-		when(channel.read(any()))
-				.thenAnswer(invocation -> {
+		given(channel.read(any()))
+				.willAnswer(invocation -> {
 					ByteBuffer buffer = invocation.getArgument(0);
 					buffer.put("foo".getBytes(StandardCharsets.UTF_8));
 					buffer.flip();
 					return 3;
 				})
-				.thenThrow(new IOException());
+				.willThrow(new IOException());
 
 		Flux<DataBuffer> result =
 				DataBufferUtils.readByteChannel(() -> channel, this.bufferFactory, 3);
@@ -144,7 +151,7 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 	@Test
 	public void readAsynchronousFileChannelError() throws Exception {
 		AsynchronousFileChannel channel = mock(AsynchronousFileChannel.class);
-		doAnswer(invocation -> {
+		willAnswer(invocation -> {
 			ByteBuffer byteBuffer = invocation.getArgument(0);
 			byteBuffer.put("foo".getBytes(StandardCharsets.UTF_8));
 			byteBuffer.flip();
@@ -154,13 +161,13 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 			CompletionHandler<Integer, DataBuffer> completionHandler = invocation.getArgument(3);
 			completionHandler.completed(3, dataBuffer);
 			return null;
-		}).doAnswer(invocation -> {
+		}).willAnswer(invocation -> {
 			DataBuffer dataBuffer = invocation.getArgument(2);
 			CompletionHandler<Integer, DataBuffer> completionHandler = invocation.getArgument(3);
 			completionHandler.failed(new IOException(), dataBuffer);
 			return null;
 		})
-		.when(channel).read(any(), anyLong(), any(), any());
+		.given(channel).read(any(), anyLong(), any(), any());
 
 		Flux<DataBuffer> result =
 				DataBufferUtils.readAsynchronousFileChannel(() -> channel, this.bufferFactory, 3);
@@ -182,6 +189,18 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 				.consumeNextWith(stringConsumer("foo"))
 				.thenCancel()
 				.verify();
+	}
+
+	@Test // gh-22107
+	public void readAsynchronousFileChannelCancelWithoutDemand() throws Exception {
+		URI uri = this.resource.getURI();
+		Flux<DataBuffer> flux = DataBufferUtils.readAsynchronousFileChannel(
+				() -> AsynchronousFileChannel.open(Paths.get(uri), StandardOpenOption.READ),
+				this.bufferFactory, 3);
+
+		BaseSubscriber<DataBuffer> subscriber = new ZeroDemandSubscriber();
+		flux.subscribe(subscriber);
+		subscriber.cancel();
 	}
 
 	@Test
@@ -299,14 +318,14 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 		Flux<DataBuffer> flux = Flux.just(foo, bar);
 
 		WritableByteChannel channel = mock(WritableByteChannel.class);
-		when(channel.write(any()))
-				.thenAnswer(invocation -> {
+		given(channel.write(any()))
+				.willAnswer(invocation -> {
 					ByteBuffer buffer = invocation.getArgument(0);
 					int written = buffer.remaining();
 					buffer.position(buffer.limit());
 					return written;
 				})
-				.thenThrow(new IOException());
+				.willThrow(new IOException());
 
 		Flux<DataBuffer> writeResult = DataBufferUtils.write(flux, channel);
 		StepVerifier.create(writeResult)
@@ -401,7 +420,7 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 		Flux<DataBuffer> flux = Flux.just(foo, bar);
 
 		AsynchronousFileChannel channel = mock(AsynchronousFileChannel.class);
-		doAnswer(invocation -> {
+		willAnswer(invocation -> {
 			ByteBuffer buffer = invocation.getArgument(0);
 			long pos = invocation.getArgument(1);
 			CompletionHandler<Integer, ByteBuffer> completionHandler = invocation.getArgument(3);
@@ -414,15 +433,14 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 
 			return null;
 		})
-				.doAnswer(invocation -> {
-					ByteBuffer buffer = invocation.getArgument(0);
-					CompletionHandler<Integer, ByteBuffer> completionHandler =
-							invocation.getArgument(3);
-					completionHandler.failed(new IOException(), buffer);
-					return null;
-				})
-				.when(channel).write(isA(ByteBuffer.class), anyLong(), isA(ByteBuffer.class),
-				isA(CompletionHandler.class));
+		.willAnswer(invocation -> {
+			ByteBuffer buffer = invocation.getArgument(0);
+			CompletionHandler<Integer, ByteBuffer> completionHandler =
+					invocation.getArgument(3);
+			completionHandler.failed(new IOException(), buffer);
+			return null;
+		})
+		.given(channel).write(isA(ByteBuffer.class), anyLong(), isA(ByteBuffer.class), isA(CompletionHandler.class));
 
 		Flux<DataBuffer> writeResult = DataBufferUtils.write(flux, channel);
 		StepVerifier.create(writeResult)
@@ -665,11 +683,11 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 	@Test
 	public void SPR16070() throws Exception {
 		ReadableByteChannel channel = mock(ReadableByteChannel.class);
-		when(channel.read(any()))
-				.thenAnswer(putByte('a'))
-				.thenAnswer(putByte('b'))
-				.thenAnswer(putByte('c'))
-				.thenReturn(-1);
+		given(channel.read(any()))
+				.willAnswer(putByte('a'))
+				.willAnswer(putByte('b'))
+				.willAnswer(putByte('c'))
+				.willReturn(-1);
 
 		Flux<DataBuffer> read =
 				DataBufferUtils.readByteChannel(() -> channel, this.bufferFactory, 1);
@@ -734,6 +752,149 @@ public class DataBufferUtilsTests extends AbstractDataBufferAllocatingTestCase {
 				.verify();
 	}
 
+	@Test
+	public void matcher() {
+		DataBuffer foo = stringBuffer("foo");
+		DataBuffer bar = stringBuffer("bar");
 
+		byte[] delims = "ooba".getBytes(StandardCharsets.UTF_8);
+		DataBufferUtils.Matcher matcher = DataBufferUtils.matcher(delims);
+		int result = matcher.match(foo);
+		assertEquals(-1, result);
+		result = matcher.match(bar);
+		assertEquals(1, result);
+
+
+		release(foo, bar);
+	}
+
+	@Test
+	public void matcher2() {
+		DataBuffer foo = stringBuffer("fooobar");
+
+		byte[] delims = "oo".getBytes(StandardCharsets.UTF_8);
+		DataBufferUtils.Matcher matcher = DataBufferUtils.matcher(delims);
+		int result = matcher.match(foo);
+		assertEquals(2, result);
+		foo.readPosition(2);
+		result = matcher.match(foo);
+		assertEquals(3, result);
+		foo.readPosition(3);
+		result = matcher.match(foo);
+		assertEquals(-1, result);
+
+		release(foo);
+	}
+
+	@Test
+	public void split() {
+		Mono<DataBuffer> source =
+				deferStringBuffer("--foo--bar--baz--");
+
+		byte[] delimiter = "--".getBytes(StandardCharsets.UTF_8);
+
+		Flux<DataBuffer> result = DataBufferUtils.split(source, delimiter);
+
+		StepVerifier.create(result)
+				.consumeNextWith(stringConsumer(""))
+				.consumeNextWith(stringConsumer("foo"))
+				.consumeNextWith(stringConsumer("bar"))
+				.consumeNextWith(stringConsumer("baz"))
+				.verifyComplete();
+	}
+
+	@Test
+	public void splitIncludeDelimiter() {
+		Mono<DataBuffer> source =
+				deferStringBuffer("--foo--bar--baz--");
+
+		byte[] delimiter = "--".getBytes(StandardCharsets.UTF_8);
+
+		Flux<DataBuffer> result = DataBufferUtils.split(source, delimiter, false);
+
+		StepVerifier.create(result)
+				.consumeNextWith(stringConsumer("--"))
+				.consumeNextWith(stringConsumer("foo--"))
+				.consumeNextWith(stringConsumer("bar--"))
+				.consumeNextWith(stringConsumer("baz--"))
+				.verifyComplete();
+	}
+
+	@Test
+	public void splitErrors() {
+		Flux<DataBuffer> source = Flux.concat(
+				deferStringBuffer("foo--"),
+				deferStringBuffer("bar--"),
+				Mono.error(new RuntimeException())
+		);
+		byte[] delimiter = "--".getBytes(StandardCharsets.UTF_8);
+
+		Flux<DataBuffer> result = DataBufferUtils.split(source, delimiter);
+
+		StepVerifier.create(result)
+				.consumeNextWith(stringConsumer("foo"))
+				.consumeNextWith(stringConsumer("bar"))
+				.expectError(RuntimeException.class)
+				.verify();
+	}
+
+	@Test
+	public void splitCanceled() {
+		Flux<DataBuffer> source = Flux.concat(
+				deferStringBuffer("foo--"),
+				deferStringBuffer("bar--"),
+				deferStringBuffer("baz")
+		);
+		byte[] delimiter = "--".getBytes(StandardCharsets.UTF_8);
+
+		Flux<DataBuffer> result = DataBufferUtils.split(source, delimiter);
+
+		StepVerifier.create(result)
+				.thenCancel()
+				.verify();
+	}
+
+
+	@Test
+	public void splitWithoutDemand() {
+		Flux<DataBuffer> source = Flux.concat(
+				deferStringBuffer("foo--"),
+				deferStringBuffer("bar--")
+		);
+		byte[] delimiter = "--".getBytes(StandardCharsets.UTF_8);
+
+		Flux<DataBuffer> result = DataBufferUtils.split(source, delimiter);
+
+		BaseSubscriber<DataBuffer> subscriber = new ZeroDemandSubscriber();
+		result.subscribe(subscriber);
+		subscriber.cancel();
+	}
+
+	@Test
+	public void splitAcrossBuffer() {
+		Flux<DataBuffer> source = Flux.concat(
+				deferStringBuffer("foo-"),
+				deferStringBuffer("-bar-"),
+				deferStringBuffer("-baz"));
+
+		byte[] delimiter = "--".getBytes(StandardCharsets.UTF_8);
+
+		Flux<DataBuffer> result = DataBufferUtils.split(source, delimiter);
+
+		StepVerifier.create(result)
+				.consumeNextWith(stringConsumer("foo"))
+				.consumeNextWith(stringConsumer("bar"))
+				.consumeNextWith(stringConsumer("baz"))
+				.verifyComplete();
+	}
+
+
+	private static class ZeroDemandSubscriber extends BaseSubscriber<DataBuffer> {
+
+		@Override
+		protected void hookOnSubscribe(Subscription subscription) {
+			// Just subscribe without requesting
+		}
+	}
 
 }

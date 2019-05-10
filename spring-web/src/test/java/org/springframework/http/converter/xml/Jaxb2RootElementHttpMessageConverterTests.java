@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,9 +27,7 @@ import javax.xml.bind.annotation.adapters.XmlAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.xmlunit.diff.DifferenceEvaluator;
 
 import org.springframework.aop.framework.AdvisedSupport;
@@ -42,10 +40,16 @@ import org.springframework.http.MockHttpInputMessage;
 import org.springframework.http.MockHttpOutputMessage;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 
-import static org.junit.Assert.*;
-import static org.xmlunit.diff.ComparisonType.*;
-import static org.xmlunit.diff.DifferenceEvaluators.*;
-import static org.xmlunit.matchers.CompareMatcher.*;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.xmlunit.diff.ComparisonType.XML_STANDALONE;
+import static org.xmlunit.diff.DifferenceEvaluators.Default;
+import static org.xmlunit.diff.DifferenceEvaluators.chain;
+import static org.xmlunit.diff.DifferenceEvaluators.downgradeDifferencesToEqual;
+import static org.xmlunit.matchers.CompareMatcher.isSimilarTo;
 
 /**
  * Tests for {@link Jaxb2RootElementHttpMessageConverter}.
@@ -61,9 +65,6 @@ public class Jaxb2RootElementHttpMessageConverterTests {
 	private RootElement rootElement;
 
 	private RootElement rootElementCglib;
-
-	@Rule
-	public ExpectedException thrown = ExpectedException.none();
 
 
 	@Before
@@ -125,7 +126,7 @@ public class Jaxb2RootElementHttpMessageConverterTests {
 	@Test
 	public void readXmlRootElementExternalEntityDisabled() throws Exception {
 		Resource external = new ClassPathResource("external.txt", getClass());
-		String content =  "<!DOCTYPE root SYSTEM \"http://192.168.28.42/1.jsp\" [" +
+		String content =  "<!DOCTYPE root SYSTEM \"https://192.168.28.42/1.jsp\" [" +
 				"  <!ELEMENT external ANY >\n" +
 				"  <!ENTITY ext SYSTEM \"" + external.getURI() + "\" >]>" +
 				"  <rootElement><external>&ext;</external></rootElement>";
@@ -170,9 +171,9 @@ public class Jaxb2RootElementHttpMessageConverterTests {
 				"]>\n" +
 				"<rootElement><external>&lol9;</external></rootElement>";
 		MockHttpInputMessage inputMessage = new MockHttpInputMessage(content.getBytes("UTF-8"));
-		this.thrown.expect(HttpMessageNotReadableException.class);
-		this.thrown.expectMessage("DOCTYPE");
-		this.converter.read(RootElement.class, inputMessage);
+		assertThatExceptionOfType(HttpMessageNotReadableException.class).isThrownBy(() ->
+				this.converter.read(RootElement.class, inputMessage))
+			.withMessageContaining("DOCTYPE");
 	}
 
 	@Test

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -53,10 +53,15 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.spy;
 
 /**
  * Tests for {@link ImportSelector} and {@link DeferredImportSelector}.
@@ -155,7 +160,7 @@ public class ImportSelectorTests {
 		ordered.verify(beanFactory).registerBeanDefinition(eq("e"), any());
 		ordered.verify(beanFactory).registerBeanDefinition(eq("c"), any());
 		assertThat(TestImportGroup.instancesCount.get(), equalTo(2));
- 		assertThat(TestImportGroup.imports.size(), equalTo(2));
+		assertThat(TestImportGroup.imports.size(), equalTo(2));
 		assertThat(TestImportGroup.allImports(), hasEntry(
 				is(ParentConfiguration1.class.getName()),
 				IsIterableContainingInOrder.contains(DeferredImportSelector1.class.getName(),
@@ -530,7 +535,7 @@ public class ImportSelectorTests {
 		static Map<String, List<String>> allImports() {
 			return TestImportGroup.imports.entrySet()
 					.stream()
-					.collect(Collectors.toMap((entry) -> entry.getKey().getClassName(),
+					.collect(Collectors.toMap(entry -> entry.getKey().getClassName(),
 							Map.Entry::getValue));
 		}
 		private final List<Entry> instanceImports = new ArrayList<>();

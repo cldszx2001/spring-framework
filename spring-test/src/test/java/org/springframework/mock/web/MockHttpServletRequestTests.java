@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,15 +29,18 @@ import java.util.Locale;
 import java.util.Map;
 import javax.servlet.http.Cookie;
 
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.util.StreamUtils;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for {@link MockHttpServletRequest}.
@@ -55,9 +58,6 @@ public class MockHttpServletRequestTests {
 	private static final String HOST = "Host";
 
 	private final MockHttpServletRequest request = new MockHttpServletRequest();
-
-	@Rule
-	public final ExpectedException exception = ExpectedException.none();
 
 
 	@Test
@@ -104,9 +104,9 @@ public class MockHttpServletRequestTests {
 
 	@Test
 	public void getContentAsStringWithoutSettingCharacterEncoding() throws IOException {
-		exception.expect(IllegalStateException.class);
-		exception.expectMessage("Cannot get content as a String for a null character encoding");
-		request.getContentAsString();
+		assertThatIllegalStateException().isThrownBy(
+				request::getContentAsString)
+			.withMessageContaining("Cannot get content as a String for a null character encoding");
 	}
 
 	@Test
@@ -142,20 +142,18 @@ public class MockHttpServletRequestTests {
 
 	@Test  // SPR-16499
 	public void getReaderAfterGettingInputStream() throws IOException {
-		exception.expect(IllegalStateException.class);
-		exception.expectMessage(
-				"Cannot call getReader() after getInputStream() has already been called for the current request");
 		request.getInputStream();
-		request.getReader();
+		assertThatIllegalStateException().isThrownBy(
+				request::getReader)
+			.withMessageContaining("Cannot call getReader() after getInputStream() has already been called for the current request");
 	}
 
 	@Test  // SPR-16499
 	public void getInputStreamAfterGettingReader() throws IOException {
-		exception.expect(IllegalStateException.class);
-		exception.expectMessage(
-				"Cannot call getInputStream() after getReader() has already been called for the current request");
 		request.getReader();
-		request.getInputStream();
+		assertThatIllegalStateException().isThrownBy(
+				request::getInputStream)
+			.withMessageContaining("Cannot call getInputStream() after getReader() has already been called for the current request");
 	}
 
 	@Test
@@ -341,6 +339,7 @@ public class MockHttpServletRequestTests {
 		List<Locale> actual = Collections.list(request.getLocales());
 		assertEquals(Arrays.asList(Locale.forLanguageTag("fr-ch"), Locale.forLanguageTag("fr"),
 				Locale.forLanguageTag("en"), Locale.forLanguageTag("de")), actual);
+		assertEquals(headerValue, request.getHeader("Accept-Language"));
 	}
 
 	@Test
@@ -348,6 +347,13 @@ public class MockHttpServletRequestTests {
 		request.addHeader("Accept-Language", "en_US");
 		assertEquals(Locale.ENGLISH, request.getLocale());
 		assertEquals("en_US", request.getHeader("Accept-Language"));
+	}
+
+	@Test
+	public void emptyAcceptLanguageHeader() {
+		request.addHeader("Accept-Language", "");
+		assertEquals(Locale.ENGLISH, request.getLocale());
+		assertEquals("", request.getHeader("Accept-Language"));
 	}
 
 	@Test

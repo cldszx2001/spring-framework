@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,21 +24,19 @@ import java.util.List;
 import java.util.Map;
 
 import org.hamcrest.Matchers;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import org.springframework.http.server.PathContainer;
 import org.springframework.http.server.PathContainer.Element;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.util.pattern.PathPattern.PathRemainingMatchInfo;
 
-import static org.hamcrest.CoreMatchers.containsString;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -484,7 +482,7 @@ public class PathPatternTests {
 		// test exact matching
 		checkMatches("test", "test");
 		checkMatches("/test", "/test");
-		checkMatches("http://example.org", "http://example.org");
+		checkMatches("https://example.org", "https://example.org");
 		checkNoMatch("/test.jpg", "test.jpg");
 		checkNoMatch("test", "/test");
 		checkNoMatch("/test", "test");
@@ -842,13 +840,10 @@ public class PathPatternTests {
 	public void extractUriTemplateVarsRegexCapturingGroups() {
 		PathPatternParser ppp = new PathPatternParser();
 		PathPattern pathPattern = ppp.parse("/web/{id:foo(bar)?}_{goo}");
-		exception.expect(IllegalArgumentException.class);
-		exception.expectMessage(containsString("The number of capturing groups in the pattern"));
-		matchAndExtract(pathPattern,"/web/foobar_goo");
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				matchAndExtract(pathPattern,"/web/foobar_goo"))
+			.withMessageContaining("The number of capturing groups in the pattern");
 	}
-
-	@Rule
-	public final ExpectedException exception = ExpectedException.none();
 
 	@Test
 	public void combine() {
@@ -893,8 +888,8 @@ public class PathPatternTests {
 	@Test
 	public void combineWithTwoFileExtensionPatterns() {
 		TestPathCombiner pathMatcher = new TestPathCombiner();
-		exception.expect(IllegalArgumentException.class);
-		pathMatcher.combine("/*.html", "/*.txt");
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				pathMatcher.combine("/*.html", "/*.txt"));
 	}
 
 	@Test

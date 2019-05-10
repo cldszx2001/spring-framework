@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.springframework.core.io.buffer;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.function.IntPredicate;
 
 import org.springframework.util.Assert;
@@ -35,8 +36,6 @@ class LeakAwareDataBuffer implements PooledDataBuffer {
 	private final AssertionError leakError;
 
 	private final LeakAwareDataBufferFactory dataBufferFactory;
-
-	private int refCount = 1;
 
 
 	LeakAwareDataBuffer(DataBuffer delegate, LeakAwareDataBufferFactory dataBufferFactory) {
@@ -64,21 +63,31 @@ class LeakAwareDataBuffer implements PooledDataBuffer {
 		return this.leakError;
 	}
 
+
+	public DataBuffer getDelegate() {
+		return this.delegate;
+	}
+
 	@Override
 	public boolean isAllocated() {
-		return this.refCount > 0;
+		return this.delegate instanceof PooledDataBuffer &&
+				((PooledDataBuffer) this.delegate).isAllocated();
 	}
 
 	@Override
 	public PooledDataBuffer retain() {
-		this.refCount++;
+		if (this.delegate instanceof PooledDataBuffer) {
+			((PooledDataBuffer) this.delegate).retain();
+		}
 		return this;
 	}
 
 	@Override
 	public boolean release() {
-		this.refCount--;
-		return this.refCount == 0;
+		if (this.delegate instanceof PooledDataBuffer) {
+			((PooledDataBuffer) this.delegate).release();
+		}
+		return isAllocated();
 	}
 
 	// delegation
@@ -140,6 +149,11 @@ class LeakAwareDataBuffer implements PooledDataBuffer {
 	}
 
 	@Override
+	public DataBuffer ensureCapacity(int capacity) {
+		return this.delegate.ensureCapacity(capacity);
+	}
+
+	@Override
 	public byte getByte(int index) {
 		return this.delegate.getByte(index);
 	}
@@ -180,8 +194,13 @@ class LeakAwareDataBuffer implements PooledDataBuffer {
 	}
 
 	@Override
-	public DataBuffer write(ByteBuffer... byteBuffers) {
-		return this.delegate.write(byteBuffers);
+	public DataBuffer write(ByteBuffer... buffers) {
+		return this.delegate.write(buffers);
+	}
+
+	@Override
+	public DataBuffer write(CharSequence charSequence, Charset charset) {
+		return this.delegate.write(charSequence, charset);
 	}
 
 	@Override

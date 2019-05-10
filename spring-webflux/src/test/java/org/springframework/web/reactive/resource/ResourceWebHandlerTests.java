@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -55,10 +55,17 @@ import org.springframework.web.server.MethodNotAllowedException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for {@link ResourceWebHandler}.
@@ -243,10 +250,10 @@ public class ResourceWebHandlerTests {
 		// Use mock ResourceResolver: i.e. we're only testing upfront validations...
 
 		Resource resource = mock(Resource.class);
-		when(resource.getFilename()).thenThrow(new AssertionError("Resource should not be resolved"));
-		when(resource.getInputStream()).thenThrow(new AssertionError("Resource should not be resolved"));
+		given(resource.getFilename()).willThrow(new AssertionError("Resource should not be resolved"));
+		given(resource.getInputStream()).willThrow(new AssertionError("Resource should not be resolved"));
 		ResourceResolver resolver = mock(ResourceResolver.class);
-		when(resolver.resolveResource(any(), any(), any(), any())).thenReturn(Mono.just(resource));
+		given(resolver.resolveResource(any(), any(), any(), any())).willReturn(Mono.just(resource));
 
 		ResourceWebHandler handler = new ResourceWebHandler();
 		handler.setLocations(Collections.singletonList(new ClassPathResource("test/", getClass())));

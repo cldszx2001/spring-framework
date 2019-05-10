@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,14 +32,15 @@ import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.web.filter.reactive.ForwardedHeaderFilter;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebExceptionHandler;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebHandler;
 
-import static java.time.Duration.*;
-import static org.junit.Assert.*;
+import static java.time.Duration.ofMillis;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for {@link WebHttpHandlerBuilder}.
@@ -180,12 +181,13 @@ public class WebHttpHandlerBuilderTests {
 	}
 
 	@Configuration
-	@SuppressWarnings({"unused", "deprecation"})
+	@SuppressWarnings("unused")
 	static class ForwardedHeaderFilterConfig {
 
 		@Bean
-		public ForwardedHeaderFilter forwardedHeaderFilter() {
-			return new ForwardedHeaderFilter();
+		@SuppressWarnings("deprecation")
+		public WebFilter forwardedHeaderFilter() {
+			return new org.springframework.web.filter.reactive.ForwardedHeaderFilter();
 		}
 
 		@Bean

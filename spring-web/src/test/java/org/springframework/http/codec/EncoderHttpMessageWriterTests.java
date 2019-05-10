@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,8 @@
 
 package org.springframework.http.codec;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
@@ -31,20 +33,25 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import org.springframework.core.codec.Encoder;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.MediaType;
 import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.util.ReflectionUtils;
 
-import static java.nio.charset.StandardCharsets.*;
-import static org.junit.Assert.*;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.springframework.core.ResolvableType.*;
-import static org.springframework.http.MediaType.*;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.core.ResolvableType.forClass;
+import static org.springframework.http.MediaType.TEXT_HTML;
+import static org.springframework.http.MediaType.TEXT_PLAIN;
+import static org.springframework.http.MediaType.TEXT_XML;
 
 /**
  * Unit tests for {@link EncoderHttpMessageWriter}.
@@ -59,7 +66,7 @@ public class EncoderHttpMessageWriterTests {
 
 
 	@Mock
-	private Encoder<String> encoder;
+	private HttpMessageEncoder<String> encoder;
 
 	private ArgumentCaptor<MediaType> mediaTypeCaptor;
 
@@ -83,7 +90,7 @@ public class EncoderHttpMessageWriterTests {
 	@Test
 	public void canWrite() {
 		HttpMessageWriter<?> writer = getWriter(MimeTypeUtils.TEXT_HTML);
-		when(this.encoder.canEncode(forClass(String.class), TEXT_HTML)).thenReturn(true);
+		given(this.encoder.canEncode(forClass(String.class), TEXT_HTML)).willReturn(true);
 
 		assertTrue(writer.canWrite(forClass(String.class), TEXT_HTML));
 		assertFalse(writer.canWrite(forClass(String.class), TEXT_XML));
@@ -172,6 +179,17 @@ public class EncoderHttpMessageWriterTests {
 		assertEquals(0, this.response.getHeaders().getContentLength());
 	}
 
+	@Test  // gh-22936
+	public void isStreamingMediaType() throws InvocationTargetException, IllegalAccessException {
+		HttpMessageWriter<String> writer = getWriter(TEXT_HTML);
+		MediaType streamingMediaType = new MediaType(TEXT_PLAIN, Collections.singletonMap("streaming", "true"));
+		given(this.encoder.getStreamingMediaTypes()).willReturn(Arrays.asList(streamingMediaType));
+		Method method = ReflectionUtils.findMethod(writer.getClass(), "isStreamingMediaType", MediaType.class);
+		ReflectionUtils.makeAccessible(method);
+		assertTrue((Boolean) method.invoke(writer, streamingMediaType));
+		assertFalse((Boolean) method.invoke(writer, new MediaType(TEXT_PLAIN, Collections.singletonMap("streaming", "false"))));
+		assertFalse((Boolean) method.invoke(writer, TEXT_HTML));
+	}
 
 	private HttpMessageWriter<String> getWriter(MimeType... mimeTypes) {
 		return getWriter(Flux.empty(), mimeTypes);
@@ -179,8 +197,8 @@ public class EncoderHttpMessageWriterTests {
 
 	private HttpMessageWriter<String> getWriter(Flux<DataBuffer> encodedStream, MimeType... mimeTypes) {
 		List<MimeType> typeList = Arrays.asList(mimeTypes);
-		when(this.encoder.getEncodableMimeTypes()).thenReturn(typeList);
-		when(this.encoder.encode(any(), any(), any(), this.mediaTypeCaptor.capture(), any())).thenReturn(encodedStream);
+		given(this.encoder.getEncodableMimeTypes()).willReturn(typeList);
+		given(this.encoder.encode(any(), any(), any(), this.mediaTypeCaptor.capture(), any())).willReturn(encodedStream);
 		return new EncoderHttpMessageWriter<>(this.encoder);
 	}
 

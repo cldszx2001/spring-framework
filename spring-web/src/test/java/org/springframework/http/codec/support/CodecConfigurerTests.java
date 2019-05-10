@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,7 +32,6 @@ import org.springframework.core.codec.DataBufferDecoder;
 import org.springframework.core.codec.DataBufferEncoder;
 import org.springframework.core.codec.Decoder;
 import org.springframework.core.codec.Encoder;
-import org.springframework.core.codec.ResourceDecoder;
 import org.springframework.core.codec.StringDecoder;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.CodecConfigurer;
@@ -41,6 +40,7 @@ import org.springframework.http.codec.EncoderHttpMessageWriter;
 import org.springframework.http.codec.FormHttpMessageReader;
 import org.springframework.http.codec.HttpMessageReader;
 import org.springframework.http.codec.HttpMessageWriter;
+import org.springframework.http.codec.ResourceHttpMessageReader;
 import org.springframework.http.codec.ResourceHttpMessageWriter;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.http.codec.json.Jackson2JsonEncoder;
@@ -53,8 +53,11 @@ import org.springframework.http.codec.xml.Jaxb2XmlDecoder;
 import org.springframework.http.codec.xml.Jaxb2XmlEncoder;
 import org.springframework.util.MimeTypeUtils;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for {@link BaseDefaultCodecs}.
@@ -76,7 +79,7 @@ public class CodecConfigurerTests {
 		assertEquals(ByteArrayDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(ByteBufferDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(DataBufferDecoder.class, getNextDecoder(readers).getClass());
-		assertEquals(ResourceDecoder.class, getNextDecoder(readers).getClass());
+		assertEquals(ResourceHttpMessageReader.class, readers.get(this.index.getAndIncrement()).getClass());
 		assertStringDecoder(getNextDecoder(readers), true);
 		assertEquals(ProtobufDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(FormHttpMessageReader.class, readers.get(this.index.getAndIncrement()).getClass());
@@ -107,14 +110,14 @@ public class CodecConfigurerTests {
 		Decoder<?> customDecoder1 = mock(Decoder.class);
 		Decoder<?> customDecoder2 = mock(Decoder.class);
 
-		when(customDecoder1.canDecode(ResolvableType.forClass(Object.class), null)).thenReturn(false);
-		when(customDecoder2.canDecode(ResolvableType.forClass(Object.class), null)).thenReturn(true);
+		given(customDecoder1.canDecode(ResolvableType.forClass(Object.class), null)).willReturn(false);
+		given(customDecoder2.canDecode(ResolvableType.forClass(Object.class), null)).willReturn(true);
 
 		HttpMessageReader<?> customReader1 = mock(HttpMessageReader.class);
 		HttpMessageReader<?> customReader2 = mock(HttpMessageReader.class);
 
-		when(customReader1.canRead(ResolvableType.forClass(Object.class), null)).thenReturn(false);
-		when(customReader2.canRead(ResolvableType.forClass(Object.class), null)).thenReturn(true);
+		given(customReader1.canRead(ResolvableType.forClass(Object.class), null)).willReturn(false);
+		given(customReader2.canRead(ResolvableType.forClass(Object.class), null)).willReturn(true);
 
 		this.configurer.customCodecs().decoder(customDecoder1);
 		this.configurer.customCodecs().decoder(customDecoder2);
@@ -125,20 +128,20 @@ public class CodecConfigurerTests {
 		List<HttpMessageReader<?>> readers = this.configurer.getReaders();
 
 		assertEquals(15, readers.size());
+		assertSame(customDecoder1, getNextDecoder(readers));
+		assertSame(customReader1, readers.get(this.index.getAndIncrement()));
 		assertEquals(ByteArrayDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(ByteBufferDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(DataBufferDecoder.class, getNextDecoder(readers).getClass());
-		assertEquals(ResourceDecoder.class, getNextDecoder(readers).getClass());
+		assertEquals(ResourceHttpMessageReader.class, readers.get(this.index.getAndIncrement()).getClass());
 		assertEquals(StringDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(ProtobufDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(FormHttpMessageReader.class, readers.get(this.index.getAndIncrement()).getClass());
-		assertSame(customDecoder1, getNextDecoder(readers));
-		assertSame(customReader1, readers.get(this.index.getAndIncrement()));
+		assertSame(customDecoder2, getNextDecoder(readers));
+		assertSame(customReader2, readers.get(this.index.getAndIncrement()));
 		assertEquals(Jackson2JsonDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(Jackson2SmileDecoder.class, getNextDecoder(readers).getClass());
 		assertEquals(Jaxb2XmlDecoder.class, getNextDecoder(readers).getClass());
-		assertSame(customDecoder2, getNextDecoder(readers));
-		assertSame(customReader2, readers.get(this.index.getAndIncrement()));
 		assertEquals(StringDecoder.class, getNextDecoder(readers).getClass());
 	}
 
@@ -147,14 +150,14 @@ public class CodecConfigurerTests {
 		Encoder<?> customEncoder1 = mock(Encoder.class);
 		Encoder<?> customEncoder2 = mock(Encoder.class);
 
-		when(customEncoder1.canEncode(ResolvableType.forClass(Object.class), null)).thenReturn(false);
-		when(customEncoder2.canEncode(ResolvableType.forClass(Object.class), null)).thenReturn(true);
+		given(customEncoder1.canEncode(ResolvableType.forClass(Object.class), null)).willReturn(false);
+		given(customEncoder2.canEncode(ResolvableType.forClass(Object.class), null)).willReturn(true);
 
 		HttpMessageWriter<?> customWriter1 = mock(HttpMessageWriter.class);
 		HttpMessageWriter<?> customWriter2 = mock(HttpMessageWriter.class);
 
-		when(customWriter1.canWrite(ResolvableType.forClass(Object.class), null)).thenReturn(false);
-		when(customWriter2.canWrite(ResolvableType.forClass(Object.class), null)).thenReturn(true);
+		given(customWriter1.canWrite(ResolvableType.forClass(Object.class), null)).willReturn(false);
+		given(customWriter2.canWrite(ResolvableType.forClass(Object.class), null)).willReturn(true);
 
 		this.configurer.customCodecs().encoder(customEncoder1);
 		this.configurer.customCodecs().encoder(customEncoder2);
@@ -165,19 +168,19 @@ public class CodecConfigurerTests {
 		List<HttpMessageWriter<?>> writers = this.configurer.getWriters();
 
 		assertEquals(14, writers.size());
+		assertSame(customEncoder1, getNextEncoder(writers));
+		assertSame(customWriter1, writers.get(this.index.getAndIncrement()));
 		assertEquals(ByteArrayEncoder.class, getNextEncoder(writers).getClass());
 		assertEquals(ByteBufferEncoder.class, getNextEncoder(writers).getClass());
 		assertEquals(DataBufferEncoder.class, getNextEncoder(writers).getClass());
 		assertEquals(ResourceHttpMessageWriter.class, writers.get(index.getAndIncrement()).getClass());
 		assertEquals(CharSequenceEncoder.class, getNextEncoder(writers).getClass());
 		assertEquals(ProtobufHttpMessageWriter.class, writers.get(index.getAndIncrement()).getClass());
-		assertSame(customEncoder1, getNextEncoder(writers));
-		assertSame(customWriter1, writers.get(this.index.getAndIncrement()));
+		assertSame(customEncoder2, getNextEncoder(writers));
+		assertSame(customWriter2, writers.get(this.index.getAndIncrement()));
 		assertEquals(Jackson2JsonEncoder.class, getNextEncoder(writers).getClass());
 		assertEquals(Jackson2SmileEncoder.class, getNextEncoder(writers).getClass());
 		assertEquals(Jaxb2XmlEncoder.class, getNextEncoder(writers).getClass());
-		assertSame(customEncoder2, getNextEncoder(writers));
-		assertSame(customWriter2, writers.get(this.index.getAndIncrement()));
 		assertEquals(CharSequenceEncoder.class, getNextEncoder(writers).getClass());
 	}
 
@@ -186,14 +189,14 @@ public class CodecConfigurerTests {
 		Decoder<?> customDecoder1 = mock(Decoder.class);
 		Decoder<?> customDecoder2 = mock(Decoder.class);
 
-		when(customDecoder1.canDecode(ResolvableType.forClass(Object.class), null)).thenReturn(false);
-		when(customDecoder2.canDecode(ResolvableType.forClass(Object.class), null)).thenReturn(true);
+		given(customDecoder1.canDecode(ResolvableType.forClass(Object.class), null)).willReturn(false);
+		given(customDecoder2.canDecode(ResolvableType.forClass(Object.class), null)).willReturn(true);
 
 		HttpMessageReader<?> customReader1 = mock(HttpMessageReader.class);
 		HttpMessageReader<?> customReader2 = mock(HttpMessageReader.class);
 
-		when(customReader1.canRead(ResolvableType.forClass(Object.class), null)).thenReturn(false);
-		when(customReader2.canRead(ResolvableType.forClass(Object.class), null)).thenReturn(true);
+		given(customReader1.canRead(ResolvableType.forClass(Object.class), null)).willReturn(false);
+		given(customReader2.canRead(ResolvableType.forClass(Object.class), null)).willReturn(true);
 
 		this.configurer.customCodecs().decoder(customDecoder1);
 		this.configurer.customCodecs().decoder(customDecoder2);
@@ -217,14 +220,14 @@ public class CodecConfigurerTests {
 		Encoder<?> customEncoder1 = mock(Encoder.class);
 		Encoder<?> customEncoder2 = mock(Encoder.class);
 
-		when(customEncoder1.canEncode(ResolvableType.forClass(Object.class), null)).thenReturn(false);
-		when(customEncoder2.canEncode(ResolvableType.forClass(Object.class), null)).thenReturn(true);
+		given(customEncoder1.canEncode(ResolvableType.forClass(Object.class), null)).willReturn(false);
+		given(customEncoder2.canEncode(ResolvableType.forClass(Object.class), null)).willReturn(true);
 
 		HttpMessageWriter<?> customWriter1 = mock(HttpMessageWriter.class);
 		HttpMessageWriter<?> customWriter2 = mock(HttpMessageWriter.class);
 
-		when(customWriter1.canWrite(ResolvableType.forClass(Object.class), null)).thenReturn(false);
-		when(customWriter2.canWrite(ResolvableType.forClass(Object.class), null)).thenReturn(true);
+		given(customWriter1.canWrite(ResolvableType.forClass(Object.class), null)).willReturn(false);
+		given(customWriter2.canWrite(ResolvableType.forClass(Object.class), null)).willReturn(true);
 
 		this.configurer.customCodecs().encoder(customEncoder1);
 		this.configurer.customCodecs().encoder(customEncoder2);

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,13 +21,15 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import org.springframework.util.StringUtils;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for {@link Profiles}.
@@ -39,35 +41,32 @@ import static org.junit.Assert.*;
  */
 public class ProfilesTests {
 
-	@Rule
-	public ExpectedException thrown = ExpectedException.none();
-
 	@Test
 	public void ofWhenNullThrowsException() {
-		this.thrown.expect(IllegalArgumentException.class);
-		this.thrown.expectMessage("Must specify at least one profile");
-		Profiles.of((String[]) null);
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				Profiles.of((String[]) null))
+			.withMessageContaining("Must specify at least one profile");
 	}
 
 	@Test
 	public void ofWhenEmptyThrowsException() {
-		this.thrown.expect(IllegalArgumentException.class);
-		this.thrown.expectMessage("Must specify at least one profile");
-		Profiles.of();
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				Profiles.of())
+			.withMessageContaining("Must specify at least one profile");
 	}
 
 	@Test
 	public void ofNullElement() {
-		this.thrown.expect(IllegalArgumentException.class);
-		this.thrown.expectMessage("must contain text");
-		Profiles.of((String) null);
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				Profiles.of((String) null))
+			.withMessageContaining("must contain text");
 	}
 
 	@Test
 	public void ofEmptyElement() {
-		this.thrown.expect(IllegalArgumentException.class);
-		this.thrown.expectMessage("must contain text");
-		Profiles.of("  ");
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				Profiles.of("  "))
+			.withMessageContaining("must contain text");
 	}
 
 	@Test
@@ -124,7 +123,7 @@ public class ProfilesTests {
 		assertFalse(profiles.matches(activeProfiles("spring")));
 		assertTrue(profiles.matches(activeProfiles("framework")));
 	}
-	
+
 	@Test
 	public void ofSingleInvertedExpression() {
 		Profiles profiles = Profiles.of("(!spring)");
@@ -196,6 +195,56 @@ public class ProfilesTests {
 	}
 
 	@Test
+	public void ofAndExpressionWithInvertedSingleElement() {
+		Profiles profiles = Profiles.of("!spring & framework");
+		assertOfAndExpressionWithInvertedSingleElement(profiles);
+	}
+
+	@Test
+	public void ofAndExpressionWithInBracketsInvertedSingleElement() {
+		Profiles profiles = Profiles.of("(!spring) & framework");
+		assertOfAndExpressionWithInvertedSingleElement(profiles);
+	}
+
+	@Test
+	public void ofAndExpressionWithInvertedSingleElementInBrackets() {
+		Profiles profiles = Profiles.of("! (spring) & framework");
+		assertOfAndExpressionWithInvertedSingleElement(profiles);
+	}
+
+	@Test
+	public void ofAndExpressionWithInvertedSingleElementInBracketsWithoutSpaces() {
+		Profiles profiles = Profiles.of("!(spring)&framework");
+		assertOfAndExpressionWithInvertedSingleElement(profiles);
+	}
+
+	@Test
+	public void ofAndExpressionWithInvertedSingleElementWithoutSpaces() {
+		Profiles profiles = Profiles.of("!spring&framework");
+		assertOfAndExpressionWithInvertedSingleElement(profiles);
+	}
+
+	private void assertOfAndExpressionWithInvertedSingleElement(Profiles profiles) {
+		assertTrue(profiles.matches(activeProfiles("framework")));
+		assertFalse(profiles.matches(activeProfiles("java")));
+		assertFalse(profiles.matches(activeProfiles("spring", "framework")));
+		assertFalse(profiles.matches(activeProfiles("spring")));
+	}
+
+	@Test
+	public void ofOrExpressionWithInvertedSingleElementWithoutSpaces() {
+		Profiles profiles = Profiles.of("!spring|framework");
+		assertOfOrExpressionWithInvertedSingleElement(profiles);
+	}
+
+	private void assertOfOrExpressionWithInvertedSingleElement(Profiles profiles) {
+		assertTrue(profiles.matches(activeProfiles("framework")));
+		assertTrue(profiles.matches(activeProfiles("java")));
+		assertTrue(profiles.matches(activeProfiles("spring", "framework")));
+		assertFalse(profiles.matches(activeProfiles("spring")));
+	}
+
+	@Test
 	public void ofNotOrExpression() {
 		Profiles profiles = Profiles.of("!(spring | framework)");
 		assertOfNotOrExpression(profiles);
@@ -255,7 +304,7 @@ public class ProfilesTests {
 			assertTrue(ex.getMessage().contains("Malformed"));
 		}
 	}
-	
+
 	private static Predicate<String> activeProfiles(String... profiles) {
 		return new MockActiveProfiles(profiles);
 	}
